@@ -24,3 +24,4 @@ class Cyrk(CyrkNaKulkach):
 person = Cyrk()
 
 print(person.tworznie_balwana())
+print(person.eliminacja_balwana())

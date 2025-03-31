@@ -1,0 +1,22 @@
+ 1. Na 3 - praca z labek na repo + mail z linkiem szymon.guzik@gdansk.merito.pl
+ 2. Praca w grupach - po dwie osoby
+ 3. Wymagania od strony kodu
+ - clean code (stosowanie zasady DRY)
+ - Wzorzec projektowy Singleton
+ - Zmienne, stałe, metody, klasy, klasy bstrakcyjne, dekoratory, dziedziczenie, wielodziedziczenie, ApiAsync
+ - Ostatnie lab to 1 termin 
+ - II termin - tak jak ustali uczelnia - pozniej mnie nie ma :) 
+
+
+ Tematy projektow:
+ - Backend danych dla e-commerce typu allegro 
+    - Wymagania + Relacje, powiazania, modele
+- Logowanie do wszystkich social media za pomocą api (Wymagania + modele + async) 
+    (FT, IG, X, LinkedIn, Google)
+- Bot do Discord (Pobieranie aktualnych kursow walut + wysylka w czytelnej formie 
+    na kanal ogolny wskazanego serwera) Wymagania + API + modele
+- Zautomatyzowany system zarzadzania finansami (w oparciu o dane dmonstracyjne bankow)
+- Podpięcie Chatu GPT/Deepseek/google gemini/copilot do swojego programu np. prompt do 
+    wygenerowania Artykulu Wymagania + api + modele
+- System obslugi biblioteki uniwersyteckiej (katalogowanie =  relacje + wymagania + modele)
+- -----------------------XxXXXXxX-----------------------
