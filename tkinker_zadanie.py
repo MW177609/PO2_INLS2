@@ -26,17 +26,21 @@ class FetchNasaImagesApp:
 
         self.search_var = tk.StringVar() # zmienna przechowująca teks wpisany w polu wyszukiwania
 
+        # Etykieta podaj zapytanie
+        search_label = tk.Label(top_frame, text = "Podaj zapytanie: ", font = ("Arial", 14), bg = 'black', fg = 'lime')
+        search_label.grid(row = 0, column  = 0, padx = (0, 10))
+
         # Pole tekstowe na 30 znaków szerokości
         search_entry = tk.Entry(top_frame, textvariable = self.search_var, font=("Arial", 14), width=30, bg= 'black', fg = 'lime', insertbackground = 'lime')
-        search_entry.grid(row=0, column=0, padx=(0, 10))
+        search_entry.grid(row = 0, column = 1, padx = (0, 10))
 
         # Przycisk "szukaj" wywołujący metodę "search_images" po kliknięciu
         search_button = tk.Button(top_frame, text = "Szukaj", command = self.search_images, font = ("Arial", 14), bg = 'black', fg = 'lime', activebackground = 'black', activeforeground = 'lime', borderwidth= 2, highlightbackground= 'lime', highlightcolor= 'lime')
-        search_button.grid(row = 0, column = 1)
+        search_button.grid(row = 0, column = 2)
 
-        # Wycentrowanie pola wyszukuwania, dają mu większą wagę (rozciąga się), a przycisk "szukaj" pozostaje nie zieniony
-        top_frame.grid_columnconfigure(0, weight = 1)
-        top_frame.grid_columnconfigure(1, weight = 0)
+        top_frame.grid_columnconfigure(1, weight = 1) # pole tekstowe, rozciąga się
+        top_frame.grid_columnconfigure(0, weight = 0) # napis "Podaj zapytanie", nie rozciąga się
+        top_frame.grid_columnconfigure(2, weight = 0) # przycisk szukaj, nie rozciąga się
 
         # Panel główny
         main_frame = tk.Frame(self.root, bg = 'black')
@@ -69,7 +73,7 @@ class FetchNasaImagesApp:
     def log(self, message):
         timestamp = datetime.now().strftime("%d-%m-%Y %H:%M:%S") # Generuje znacznik czasu
         self.log_text.configure(state = 'normal') # Wyłącza edytowanie pola tekstowego logów
-        self.log_text.insert(tk.END,f"[{timestamp}] {message}\n") # dodaje wiadomości w formacie : na końcu tekstu z nową linią
+        self.log_text.insert(tk.END,f"[{timestamp}] {message}\n") # dzięki temu wiadomości pokazują się z dokładną datą i czasem
         self.log_text.configure(state = 'disabled') # wyłącza edytowanie aby użtkownik nie mógł zmnieniać logów
         self.log_text.see(tk.END) # Przewija panel logów do najnowszej wiadomości, aby była zawsze widoczna
 
@@ -116,7 +120,7 @@ class FetchNasaImagesApp:
         except Exception as e: # loguje niespodziewane błedy,
             self.log(f"Niespodziewany błąd: {str(e)}")
 
-    # czyści siatkę obrazów przed nowym wyszukanie (zabija dzieci XD)
+    # Czyści siatkę obrazów przed nowym wyszukanie (zabija dzieci XD)
     def clear_images(self):
         for widget in self.images_frame.winfo_children(): # pobiera wszystkie widżety (ramki z obrazkami i tytułami) w "images_frame"
             widget.destroy() # usuwa każdy widżet z interfejsu
@@ -263,5 +267,5 @@ def main():
     root.geometry("1200x800") # wielkość okna aplikacji
     root.mainloop() # pętla zadarzeń tkinter, obsługuje interakcje użytkownika
 
-if __name__ == "__main__": # to zapewnia zę "main" uruchomi się tylko, jeśli skrypt jest uruchamiany bezpośrednio (nie jako moduł)
+if __name__ == "__main__": # to zapewnia że "main" uruchomi się tylko, jeśli skrypt jest uruchamiany bezpośrednio (nie jako moduł)
     main()
