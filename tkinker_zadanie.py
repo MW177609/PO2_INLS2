@@ -1,272 +1,329 @@
-import tkinter as tk # tk, ttk, messagebox - tworzy okna, przyciski, pola tekstowe i komunikaty (np. ostrzeżenia)
-from datetime import datetime # generuje znaczniki czasowe dla logów
-from tkinter import ttk
+# Importuje bibliotekę Tkinter.
+import tkinter as tk
+# Importuje klasę datetime z modułu datetime, aby obsługiwać znaczniki czasu dla logów.
+from datetime import datetime
+# Importuje moduł messagebox z Tkinter, który służy do wyświetlania okien dialogowych z ostrzeżeniami lub błędami.
 from tkinter import messagebox
-from PIL import Image, ImageTk # przetwarza obray (skaluje) i konwertuje je na na format wyświetlany przez tkinter
-import requests # wysyła żądania HTTP do API NASA w celu pobrania danych i obrazów
-from io import BytesIO # umożliwia odzczyt danych obrazów jako strumienia w pamięci
+# Importuje Image i ImageTk z biblioteki PIL (Python Imaging Library) do obsługi ładowania obrazów i ich konwersji na format zgodny z Tkinter.
+from PIL import Image, ImageTk
+# Importuje bibliotekę requests do wykonywania zapytań HTTP do API NASA Images.
+import requests
+# Importuje BytesIO z modułu io, aby obsługiwać dane binarne w pamięci (np. obrazy).
+from io import BytesIO
 
-# inicjalizuje aplikację, ustawia okno główne i podstawowe zminne
-class FetchNasaImagesApp:
+# Klasa do centralnego zarządzania stylami
+# Definiuje klasę StyleConfig, która centralizuje zarządzanie stylami wizualnymi aplikacji.
+class StyleConfig:
+    # Definiuje metodę inicjalizującą dla klasy StyleConfig.
+    def __init__(self):
+        # Ustawia kolor tła (bg_color).
+        self.bg_color = "black"
+        # Ustawia kolor tekstu i elementów pierwszoplanowych (fg_color).
+        self.fg_color = "lime"
+        # Ustawia kolor tła dla aktywnych elementów (np. po najechaniu myszą).
+        self.active_bg = "black"
+        # Ustawia kolor pierwszoplanowy dla aktywnych elementów.
+        self.active_fg = "lime"
+        # Ustawia rodzinę czcionek na "Arial".
+        self.font_family = "Arial"
+        # Ustawia rozmiar czcionki dla etykiet.
+        self.font_size_label = 14
+        # Ustawia rozmiar czcionki dla przycisków.
+        self.font_size_button = 14
+        # Ustawia rozmiar czcionki dla tytułów (np. pod obrazami) na 10.
+        self.font_size_title = 10
+        # Ustawia rozmiar czcionki dla tekstu "Ładowanie..." na 20.
+        self.font_size_loading = 20
+        # Tworzy krotkę dla czcionki etykiet, zawierającą rodzinę czcionek i rozmiar.
+        self.label_font = (self.font_family, self.font_size_label)
+        # Tworzy krotkę dla czcionki przycisków.
+        self.button_font = (self.font_family, self.font_size_button)
+        # Tworzy krotkę dla czcionki tytułów.
+        self.title_font = (self.font_family, self.font_size_title)
+        # Tworzy krotkę dla czcionki tekstu ładowania, dodając atrybut "bold" (pogrubienie).
+        self.loading_font = (self.font_family, self.font_size_loading, "bold")
+        # Ustawia szerokość obramowania dla elementów (np. przycisków) na 2 piksele.
+        self.border_width = 2
+        # Ustawia grubość podświetlenia (np. dla pól tekstowych) na 2 piksele.
+        self.highlight_thickness = 2
 
-    def __init__(self, root):
-        self.root = root # przechowuje referencję do głównego okna tkinter
-        self.root.title("NASA Image Search") # tytuł okna
-        self.base_url = "https://images-api.nasa.gov/search" # definiuje adres API NASA do wyszukiwania
+    # Definiuje metodę update_styles, która aktualizuje style czcionek.
+    def update_styles(self):
+        # Aktualizuje czcionkę etykiet na podstawie bieżących wartości.
+        self.label_font = (self.font_family, self.font_size_label)
+        # Aktualizuje czcionkę przycisków.
+        self.button_font = (self.font_family, self.font_size_button)
+        # Aktualizuje czcionkę tytułów.
+        self.title_font = (self.font_family, self.font_size_title)
+        # Aktualizuje czcionkę tekstu ładowania.
+        self.loading_font = (self.font_family, self.font_size_loading, "bold")
 
-        self.images = [] # lista przechowująca obiekty (w tym wypadku obrazy), aby zapobieć ich usuwaniu przez garbage (collection Pythona)
-        self.setup_ui() # wywołuje metodę konfigurującą interfejs graficzny
+# Definiuje klasę bazową NasaAppBase, używaną przez inne klasy w aplikacji.
+class NasaAppBase:
+    # Inicjalizuje klasę, przyjmując obiekt style_config i opcjonalny callback dla logów.
+    def __init__(self, style_config, log_callback=None):
+        # Przypisuje obiekt style_config do atrybutu style.
+        self.style = style_config
+        # Przypisuje funkcję callback dla logów do atrybutu log_callback.
+        self.log_callback = log_callback
 
-    # Tworzy i konfiguruje interfejs graficzy aplikacji
-    def setup_ui(self):
-        self.root.configure(bg = 'black') # czarne tło dla całego okna
-
-        # Pasek na wyszukiwanie
-        top_frame = tk.Frame(self.root, bg = 'black') # tworzy ramkę na pasek wyszukiwania
-        top_frame.pack(side = tk.TOP, pady = 20) # to odpowiada gdzie pasek się znajduje
-
-        self.search_var = tk.StringVar() # zmienna przechowująca tekst wpisany w polu wyszukiwania
-
-        # Etykieta podaj zapytanie
-        search_label = tk.Label(top_frame, text = "Podaj zapytanie: ", font = ("Arial", 14), bg = 'black', fg = 'lime')
-        search_label.grid(row = 0, column  = 0, padx = (0, 10))
-
-        # Pole tekstowe na 30 znaków szerokości
-        search_entry = tk.Entry(top_frame, textvariable = self.search_var, font = ("Arial", 14), width = 30, bg = 'black', fg = 'lime', insertbackground = 'lime')
-        search_entry.grid(row = 0, column = 1, padx = (0, 10))
-
-        # Przycisk "szukaj" wywołujący metodę "search_images" po kliknięciu
-        search_button = tk.Button(top_frame, text = "Szukaj", command = self.search_images, font = ("Arial", 14), bg = 'black', fg = 'lime', activebackground = 'black', activeforeground = 'lime', borderwidth= 2)
-        search_button.grid(row = 0, column = 2)
-
-        top_frame.grid_columnconfigure(1, weight = 1) # pole tekstowe, rozciąga się
-        top_frame.grid_columnconfigure(0, weight = 0) # napis "Podaj zapytanie", nie rozciąga się
-        top_frame.grid_columnconfigure(2, weight = 0) # przycisk szukaj, nie rozciąga się
-
-        # Panel główny
-        main_frame = tk.Frame(self.root, bg = 'black')
-        main_frame.pack(fill = tk.BOTH, expand = True) # Ramka wypełnijąca okno rozciąga się w pionie i poziomie
-
-        # Lewa strona - obrazy
-        # ramka na obrazy, rozciąga się w lewej części
-        self.left_frame = tk.Frame(main_frame, bg = 'black')
-        self.left_frame.pack(side = tk.LEFT, fill = tk.BOTH, expand = True, padx = 10, pady = 10)
-
-        # Wewnętrzna ramka na siatkę obrazów, wypełnia dostępną przestrzeń
-        self.images_frame = tk.Frame(self.left_frame, bg = 'black')
-        self.images_frame.pack(fill = tk.BOTH, expand = True)
-
-        # Prawa strona - logi
-        # Ramka o stałej szerokości (300 pix) na panel logów
-        self.right_frame = tk.Frame(main_frame, width = 300, bg = 'black')
-        self.right_frame.pack(side = tk.RIGHT, fill = tk.Y)
-
-        # Etykieta "Logi" nad panelem logów
-        log_label = tk.Label(self.right_frame, text = "Logi", font = ("Arial", 14), bg = 'black', fg = 'lime')
-        log_label.pack(pady = (10, 0))
-
-        # Pole tekstowe (tylko do odczytu) do wyświetlania logów, rozciąga się wypełniając przestrzeń
-        self.log_text = tk.Text(self.right_frame, state = 'disabled', width = 40, bg = 'black', fg = 'lime', insertbackground = 'lime', highlightbackground = 'lime', highlightcolor = 'lime', highlightthickness = 2)
-        self.log_text.pack(fill = tk.BOTH, expand = True, padx = 10, pady = 10)
-
-    # Logi
-    # Dodje wiadomości do panelu logów z aktualnym znacznikeim czasowym
+    # Definiuje metodę log do zapisywania wiadomości w logach.
     def log(self, message):
-        timestamp = datetime.now().strftime("%d-%m-%Y %H:%M:%S") # Generuje znacznik czasu
-        self.log_text.configure(state = 'normal') # Wyłącza edytowanie pola tekstowego logów
-        self.log_text.insert(tk.END,f"[{timestamp}] {message}\n") # pokazanie wiadomości z dokładną datą i czasem
-        self.log_text.configure(state = 'disabled') # wyłącza edytowanie aby użtkownik nie mógł zmnieniać logów
-        self.log_text.see(tk.END) # Przewija panel logów do najnowszej wiadomości, aby była zawsze widoczna
+        # Sprawdza, czy funkcja callback dla logów istnieje.
+        if self.log_callback:
+            # Wywołuje funkcję callback, przekazując wiadomość.
+            self.log_callback(message)
 
-    # Wyszukiwanie obrazów
-    # wyszukuje obrazy w API NASA na podstawie zapytania użytkownika i inicjuje ich wyświetlenie
-    def search_images(self):
-        query = self.search_var.get() # pobiera tekst z pola wyszukiwania
+    # Definiuje metodę do obsługi błędów żądań HTTP, z domyślnym kontekstem "Operacja".
+    def handle_request_errors(self, exception, context="Operacja"):
+        # Sprawdza, czy wyjątek jest błędem HTTP.
+        if isinstance(exception, requests.exceptions.HTTPError):
+            # Loguje błąd HTTP z kodem statusu i powodem.
+            self.log(f"Błąd HTTP w {context}: {exception.response.status_code} - {exception.response.reason}")
+            # Sprawdza, czy wyjątek jest błędem połączenia.
+        elif isinstance(exception, requests.exceptions.ConnectionError):
+            # Loguje błąd połączenia.
+            self.log(f"Błąd połączenia w {context}: Nie można połączyć się z serwerem.")
+            # Sprawdza, czy wyjątek jest błędem przekroczenia czasu.
+        elif isinstance(exception, requests.exceptions.Timeout):
+            # Loguje błąd przekroczenia czasu.
+            self.log(f"Błąd: Przekroczono limit czasu w {context}.")
+            # Sprawdza, czy wyjątek jest ogólnym błędem żądania.
+        elif isinstance(exception, requests.exceptions.RequestException):
+            # Loguje ogólny błąd żądania
+            self.log(f"Błąd żądania w {context}: {str(exception)}")
+            # Obsługuje inne, niespodziewane wyjątki.
+        else:
+            # Loguje niespodziewany błąd.
+            self.log(f"Niespodziewany błąd w {context}: {str(exception)}")
 
-        if not query: # jeśli query jest puste loguje bład i pokazuje ostrzeżenie w oknie dialogowym
+# Definiuje klasę LogPanel, dziedziczącą po NasaAppBase, do wyświetlania logów.
+class LogPanel(NasaAppBase):
+    def __init__(self, parent, style_config):
+        super().__init__(style_config, self._log_to_text)
+        self.parent = parent
+        self.text_widget = None
+        self.setup_ui()
+
+    def setup_ui(self):
+        tk.Label(
+            self.parent, text="Logi", font=self.style.label_font,
+            bg=self.style.bg_color, fg=self.style.fg_color
+        ).pack(pady=(10, 0))
+
+        self.text_widget = tk.Text(
+            self.parent, state='disabled', width=40, bg=self.style.bg_color, fg=self.style.fg_color,
+            insertbackground=self.style.fg_color, highlightbackground=self.style.fg_color,
+            highlightcolor=self.style.fg_color, highlightthickness=self.style.highlight_thickness
+        )
+        self.text_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+    def _log_to_text(self, message):
+        timestamp = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+        self.text_widget.configure(state='normal')
+        self.text_widget.insert(tk.END, f"[{timestamp}] {message}\n")
+        self.text_widget.configure(state='disabled')
+        self.text_widget.see(tk.END)
+
+# Panel wyszukiwania
+class SearchPanel(NasaAppBase):
+    def __init__(self, parent, style_config, search_callback):
+        super().__init__(style_config)
+        self.parent = parent
+        self.search_callback = search_callback
+        self.search_var = tk.StringVar()
+        self.setup_ui()
+
+    def setup_ui(self):
+        frame = tk.Frame(self.parent, bg=self.style.bg_color)
+        frame.pack(side=tk.TOP, fill=tk.X, pady=(10, 0))
+
+        inner_frame = tk.Frame(frame, bg=self.style.bg_color)
+        inner_frame.pack(anchor="center", pady=5)
+
+        tk.Label(
+            inner_frame, text="Podaj zapytanie: ", font=self.style.label_font,
+            bg=self.style.bg_color, fg=self.style.fg_color
+        ).grid(row=0, column=0, padx=(0, 10))
+
+        tk.Entry(
+            inner_frame, textvariable=self.search_var, font=self.style.label_font, width=30,
+            bg=self.style.bg_color, fg=self.style.fg_color, insertbackground=self.style.fg_color
+        ).grid(row=0, column=1, padx=(0, 10))
+
+        tk.Button(
+            inner_frame, text="Szukaj", command=self._on_search, font=self.style.button_font,
+            bg=self.style.bg_color, fg=self.style.fg_color, activebackground=self.style.active_bg,
+            activeforeground=self.style.active_fg, borderwidth=self.style.border_width
+        ).grid(row=0, column=2)
+
+        for col, weight in [(0, 0), (1, 1), (2, 0)]:
+            inner_frame.grid_columnconfigure(col, weight=weight)
+
+    def _on_search(self):
+        query = self.search_var.get()
+        if not query:
             self.log("Błąd: Wprowadź zapytanie wyszukiwania.")
             messagebox.showwarning("Błąd", "Wprowadź zapytanie!")
             return
+        self.search_callback(query)
 
-        self.clear_images()
-        self.log(f"Wyszukiwanie: {query}")
+# Siatka obrazów
+class ImageGrid(NasaAppBase):
+    def __init__(self, parent, style_config, log_callback):
+        super().__init__(style_config, log_callback)
+        self.parent = parent
+        self.images_frame = tk.Frame(self.parent, bg=self.style.bg_color)
+        self.images_frame.pack(fill=tk.BOTH, expand=True)
+        self.images = []
 
-        try:
-            params = {'q': query, 'media_type': 'image'} # tworzy parametry żądania (q - zapytanie, a "media_type: image" - wynik w postaci obrazów)
-            response = requests.get(self.base_url, params = params) # wysyła żądanie "get" do API NASA
-            response.raise_for_status() # sprawdza czy odpowiedź HTTP jest poprawna
-
-            # Przetwarzanie odpowiedzi
-            data = response.json() # parsuje odpowiedź json
-            items = data.get("collection", {}).get("items", []) # pobiera listę wyników z odpowiedzi z zabezpieczeniem przed brakiem kluczy
-
-            if not items: # jeśli "items" jest puste, loguje brak wyników i kończy
-                self.log("Brak wyników dla danego wyszukiwania.")
-                return
-            # loguje liczbe znalezionych wyników i limit (max. 9 obrazków)
-            self.log(f"Znaleziono {len(items)} wyników. Wyświetlam maksymalnie 9 obrazów.")
-            self.display_images(items)
-
-        # Obsługa błędów
-        except requests.exceptions.HTTPError as e: # loguje kod błędu HTTP i przyczynę
-            self.log(f"Błąd HTTP: {e.response.status_code} - {e.response.reason}")
-        except requests.exceptions.ConnectionError: # loguje problem z połączeniem
-            self.log("Błąd połączenia: Nie można połączyć się serwerem NASA.")
-        except requests.exceptions.Timeout: # loguje przekroczenie limitu czasu
-            self.log("Błąd: Przekroczono limit czasu żądania.")
-        except requests.exceptions.RequestException as e: # loguje inne błedy żądania
-            self.log(f"Błąd żądania: {str(e)}") # e - obiekt wątku (błąd), w stringu żeby był w formie tekstu
-        except ValueError as e: # loguje błędy parsowania json
-            self.log(f"Błąd parsowania json: {str(e)}")
-        except Exception as e: # loguje niespodziewane błedy,
-            self.log(f"Niespodziewany błąd: {str(e)}")
-
-    # Czyści siatkę obrazów przed nowym wyszukaniem (zabija dzieci XD)
     def clear_images(self):
-        for widget in self.images_frame.winfo_children(): # pobiera wszystkie widżety (ramki z obrazkami i tytułami) w "images_frame"
-            widget.destroy() # usuwa każdy widżet z interfejsu
-        self.images.clear() # czyści listę referencji do obiektów "PhotoImage", zwalniając pamięć
+        for widget in self.images_frame.winfo_children():
+            widget.destroy()
+        self.images.clear()
 
-    # Wyświetla do 9 obrazków w siatce 3x3, jeden po drugin, z etykietą "Ładowanie..." na pierwszym planie
-    def display_images(self, items):
-        col_count = 3 # skala siatki
-        row = 0 # zmienne śledzące pozycję w siatce
-        col = 0
-        shown = 0
+    def display_images(self, items, root):
+        col_count = 3
+        row = col = shown = 0
+        loading_label = tk.Label(
+            root, text="Ładowanie...", font=self.style.loading_font,
+            fg=self.style.fg_color, bg=self.style.bg_color
+        )
+        loading_label.place(relx=0.5, rely=0.5, anchor="center")
+        root.update()
 
-        # Etykieta ładowania
-        # twoży etykietę "ładowanie..."
-        loading_label = tk.Label(self.root, text = "Ładowanie...", font = ("Arial", 20, "bold"), fg = "lime", bg = "black")
-        loading_label.place(relx = 0.5, rely = 0.5, anchor = "center") #umieszcza ją na środku okna głównego, na pierwszym planie
-
-        self.root.update() # odświeża interfejs, aby etykieta była widoczna przed ładowaniem obrazów
-
-        def load_image(item): # Ładuje i wyświetla pojedynczy obraz w siatce
-            nonlocal row, col, shown # używa zmiennych z zwenętrznego zakresu
-            links = item.get("links", []) # pobiera links i data z elementu json
+        def load_image(item):
+            nonlocal row, col, shown
+            links = item.get("links", [])
             data = item.get("data", [])
-            if not links or not data: # jeśli brak, zapisuje w logach i pomija
+            if not links or not data:
                 self.log("Pominięto element: Brak linków lub danych.")
                 return True
 
-            img_url = links[0].get("href") # pobiera img_url (adres obrazu) i tytuł, domyślnie jak obraz nie ma tytułu daje "Brak tytułu"
+            img_url = links[0].get("href")
             title = data[0].get("title", "Brak tytułu")
-
-            if not img_url: # jeśli brak img_url loguje i pomija
+            if not img_url:
                 self.log("Pominięto element: Brak linku obrazu.")
                 return True
 
-            self.log(f"Ładowanie obrazu '{title[:50]}' ({img_url})") # wpisuje w logi rozpoczęcie ładowania obrazu z tytułem i URL
-
-            # Ładowanie obrazu
+            self.log(f"Ładowanie obrazu '{title[:50]}' ({img_url})")
             try:
-                img_data = requests.get(img_url).content # pobiera dane zobrazu
-                image = Image.open(BytesIO(img_data)) # otwiera obraz w pamięci
-                image.thumbnail((200, 200)) # skaluje obraz do maksymalnie 200 x 200 pikseli
-                photo = ImageTk.PhotoImage(image) # konwertuje obraz na format tkinter
-                self.images.append(photo) # zapisuje referencję, aby uniknąć garbage (collection Pythona)
+                img_data = requests.get(img_url).content
+                image = Image.open(BytesIO(img_data))
+                image.thumbnail((200, 200))
+                photo = ImageTk.PhotoImage(image)
+                self.images.append(photo)
 
-                # Ramka na obraz i tytuł
-                img_container = tk.Frame(self.images_frame, bg = 'black') # tworzy ramkę na obraz i tytuł
-                img_container.grid(row = row, column = col, padx = 5, pady = 5) # grid umieszcza ramkę w siatce
+                img_container = tk.Frame(self.images_frame, bg=self.style.bg_color)
+                img_container.grid(row=row, column=col, padx=5, pady=5)
 
-                # Obraz z zieloną ramką
-                # przycisk z obrazem który po kliknęciu wywołuje "ope_image_window(img_url)", reszta odpowiada za zieloną ramkę wokół zdjęcia
-                img_button = tk.Button(img_container, image = photo, command = lambda url = img_url: self.open_image_window(url), bg = 'lime', activebackground = 'lime', borderwidth = 2, highlightthickness = 2, highlightbackground = 'lime', highlightcolor = 'lime')
+                img_button = tk.Button(
+                    img_container, image=photo, command=lambda url=img_url: self._open_image_window(url),
+                    bg=self.style.fg_color, activebackground=self.style.fg_color,
+                    borderwidth=self.style.border_width, highlightthickness=self.style.highlight_thickness,
+                    highlightbackground=self.style.fg_color, highlightcolor=self.style.fg_color,
+                    cursor="hand2"
+                )
                 img_button.pack()
 
-                # Tytuł
-                # "title_label" - etykieta z tytułem (max 50 znaków)
-                title_label = tk.Label(img_container, text = title[:50] + "..." if len(title) > 50 else title, font = ("Arial", 10), bg = 'black', fg = 'lime')
-                title_label.pack() # układa przycisk i etykietę w ramce
+                title_label = tk.Label(
+                    img_container, text=title[:50] + "..." if len(title) > 50 else title,
+                    font=self.style.title_font, bg=self.style.bg_color, fg=self.style.fg_color
+                )
+                title_label.pack()
 
-                self.images_frame.update() # odświeża siatkę, aby obraz był widoczny natychmiast
-
-                # Logi pomyślnego załadowania obrazu
+                self.images_frame.update()
                 self.log(f"Załadowano obraz: '{title[:50]}'")
                 col += 1
-                if col >= col_count:  # aktualizuje pozycję w siatce (col, row) i licznki (shown)
+                if col >= col_count:
                     col = 0
                     row += 1
                 shown += 1
-                return shown < 9 # kończy w momencie wyświetlenia 9 obrazów
-
-            # Obsługa błędów (obrazów)
-            except requests.exceptions.HTTPError as e:
-                self.log(f"Błąd HTTP przy ładowaniu obrazu '{title[:50]}': {e.response.status_code} - {e.response.reason}")
-                return True
-            except requests.exceptions.ConnectionError:
-                self.log(f"Błąd połączenia przy ładaowaniu obrazu '{title[:50]}': Nie można połączyć się z serwerem.")
-                return True
-            except requests.exceptions.Timeout:
-                self.log(f"Błąd: przekroczono limit czasu przy ładaowaniu obrazu '{title[:50]}'.")
-                return True
-            except requests.exceptions.RequestException as e:
-                self.log(f"Błąd żądania przy ładowania obrazu '{title[:50]}': {str(e)}")
-                return True
-            except IOError as e:
-                self.log(f"Błąd przetwarzania obrazu '{title[:50]}': {str(e)}")
-                return True
+                return shown < 9
             except Exception as e:
-                self.log(f"Niespodziewany błąd przy ładowaniu obrazu '{title[:50]}': {str(e)}")
+                self.handle_request_errors(e, f"ładowaniu obrazu '{title[:50]}'")
                 return True
 
-        # Planuje ładowanie obrazów jeden po drugim
-        def process_next_image(index = 0):
-            if index >= len(items) or not load_image(items[index]): # sprawdzanie czy "index" nie przekracza liczby elementów lub czy "load_image" zwraca False
-                if loading_label.winfo_exists(): # jeśli zwraca False, usuwa etykietę "loading_label" (jeśli_istnieje) i pisze w logach zakończenie
+        def process_next_image(index=0):
+            if index >= len(items) or not load_image(items[index]):
+                if loading_label.winfo_exists():
                     loading_label.destroy()
                 self.log("Zakończono ładowanie obrazów.")
                 return
-            self.root.after(10, process_next_image, index + 1) # w przeciwnym razie planuje ładowanie kolejnego obrazu za 10 ms
+            root.after(10, process_next_image, index + 1)
 
-        # loguje rozpoczęcie wyświetlania
         self.log("Rozpoczęto ładowanie obrazów.")
-        self.root.after(100, process_next_image) # opóżnia start o 100 ms, aby etykieta "Ładowanie..." była widoczna
+        root.after(100, process_next_image)
 
-    # Otwieranie nowego okna z obrazem
-    # Otwiera nowe okno z pełnowymiarowym obrazkiem po kliknięciu miniatury
-    def open_image_window(self, img_url):
+    def _open_image_window(self, img_url):
         try:
-            img_data = requests.get(img_url).content # pobiera dane obrazu
-            image = Image.open(BytesIO(img_data)) # otwiera obraz
-
-            win = tk.Toplevel(self.root) # towrzy nowe okno podrzędne
-            win.title("Podgląd zdjęcia") # ustawia tytuł okna
-            win.configure(bg = 'black') # dodaje czarne tło okna
+            img_data = requests.get(img_url).content
+            image = Image.open(BytesIO(img_data))
+            win = tk.Toplevel(self.parent)
+            win.title("Podgląd zdjęcia")
+            win.configure(bg=self.style.bg_color)
 
             img_width, img_height = image.size
-            # Skalowanie zdjęcia jeśli przekacza 1000 x 800 pikseli
             if img_width > 1000 or img_height > 800:
                 image.thumbnail((1000, 800))
 
-            photo = ImageTk.PhotoImage(image) # konwertuje obraz
-            label = tk.Label(win, image=photo, bg = 'black') # wyświetla obraz w etykiecie
-            label.image = photo  # zachowuje referęcję, aby uniknąć garbage collection
-            label.pack() # umieszcza etykietę w oknie
-
-        # obsługa błędów (obrazy w oknie)
-        except requests.exceptions.HTTPError as e:
-            self.log(f"Błąd HTTP przy ładowaniu obrazu: {e.response.status_code} - {e.response.reason}")
-        except requests.exceptions.ConnectionError:
-            self.log(f"Błąd połączenia przy otwieraniu obrazu: Nie można połączyć się z serwerem.")
-        except requests.exceptions.Timeout:
-            self.log(f"Błąd: przekroczono limit czasu przy otwieraniu obrazu.")
-        except requests.exceptions.RequestException as e:
-            self.log(f"Błąd żądania przy otwierania obrazu: {str(e)}")
-        except IOError as e:
-            self.log(f"Błąd przetwarzania obrazu w podglądzie: {str(e)}")
+            photo = ImageTk.PhotoImage(image)
+            label = tk.Label(win, image=photo, bg=self.style.bg_color)
+            label.image = photo
+            label.pack()
         except Exception as e:
-            self.log(f"Niespodziewany błąd przy otwieraniu obrazu: {str(e)}")
-        except Exception as e:
-            self.log(f"Błąd przy otwieraniu obrazu: {str(e)}")
+            self.handle_request_errors(e, "otwieraniu obrazu")
 
-# Funkcja main i uruchomienie
+# Główna klasa aplikacji
+class FetchNasaImagesApp(NasaAppBase):
+    def __init__(self, root):
+        self.style = StyleConfig()
+        super().__init__(self.style)
+        self.root = root
+        self.root.title("NASA Image Search")
+        self.base_url = "https://images-api.nasa.gov/search"
+        self.root.configure(bg=self.style.bg_color)
+        self.search_panel = SearchPanel(self.root, self.style, self.search_images)
+        self.setup_ui()
+
+    def setup_ui(self):
+        main_frame = tk.Frame(self.root, bg=self.style.bg_color)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        left_frame = tk.Frame(main_frame, bg=self.style.bg_color)
+        left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        right_frame = tk.Frame(main_frame, width=300, bg=self.style.bg_color)
+        right_frame.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.log_panel = LogPanel(right_frame, self.style)
+        self.image_grid = ImageGrid(left_frame, self.style, self.log_panel.log)
+
+    def search_images(self, query):
+        self.image_grid.clear_images()
+        self.log(f"Wyszukiwanie: {query}")
+
+        try:
+            params = {'q': query, 'media_type': 'image'}
+            response = requests.get(self.base_url, params=params)
+            response.raise_for_status()
+
+            data = response.json()
+            items = data.get("collection", {}).get("items", [])
+            if not items:
+                self.log("Brak wyników dla danego wyszukiwania.")
+                return
+
+            self.log(f"Znaleziono {len(items)} wyników. Wyświetlam maksymalnie 9 obrazów.")
+            self.image_grid.display_images(items, self.root)
+        except Exception as e:
+            self.handle_request_errors(e, "wyszukiwaniu")
+
 def main():
-    root = tk.Tk() # tworzy główne okno tkinter
-    app = FetchNasaImagesApp(root) # włącza aplikację w oknie
-    root.geometry("1200x800") # wielkość okna aplikacji
-    root.mainloop() # pętla zadarzeń tkinter, obsługuje interakcje użytkownika
+    root = tk.Tk()
+    app = FetchNasaImagesApp(root)
+    root.geometry("1200x800")
+    root.mainloop()
 
-if __name__ == "__main__": # to zapewnia że "main" uruchomi się tylko, jeśli skrypt jest uruchamiany bezpośrednio (nie jako moduł)
+if __name__ == "__main__":
     main()
