@@ -8,8 +8,9 @@ from io import BytesIO # umożliwia odzczyt danych obrazów jako strumienia w pa
 
 # inicjalizuje aplikację, ustawia okno główne i podstawowe zminne
 class FetchNasaImagesApp:
+
     def __init__(self, root):
-        self.root = root # przechowuje referencję do głównego okne tkinter
+        self.root = root # przechowuje referencję do głównego okna tkinter
         self.root.title("NASA Image Search") # tytuł okna
         self.base_url = "https://images-api.nasa.gov/search" # definiuje adres API NASA do wyszukiwania
 
@@ -24,18 +25,18 @@ class FetchNasaImagesApp:
         top_frame = tk.Frame(self.root, bg = 'black') # tworzy ramkę na pasek wyszukiwania
         top_frame.pack(side = tk.TOP, pady = 20) # to odpowiada gdzie pasek się znajduje
 
-        self.search_var = tk.StringVar() # zmienna przechowująca teks wpisany w polu wyszukiwania
+        self.search_var = tk.StringVar() # zmienna przechowująca tekst wpisany w polu wyszukiwania
 
         # Etykieta podaj zapytanie
         search_label = tk.Label(top_frame, text = "Podaj zapytanie: ", font = ("Arial", 14), bg = 'black', fg = 'lime')
         search_label.grid(row = 0, column  = 0, padx = (0, 10))
 
         # Pole tekstowe na 30 znaków szerokości
-        search_entry = tk.Entry(top_frame, textvariable = self.search_var, font=("Arial", 14), width=30, bg= 'black', fg = 'lime', insertbackground = 'lime')
+        search_entry = tk.Entry(top_frame, textvariable = self.search_var, font = ("Arial", 14), width = 30, bg = 'black', fg = 'lime', insertbackground = 'lime')
         search_entry.grid(row = 0, column = 1, padx = (0, 10))
 
         # Przycisk "szukaj" wywołujący metodę "search_images" po kliknięciu
-        search_button = tk.Button(top_frame, text = "Szukaj", command = self.search_images, font = ("Arial", 14), bg = 'black', fg = 'lime', activebackground = 'black', activeforeground = 'lime', borderwidth= 2, highlightbackground= 'lime', highlightcolor= 'lime')
+        search_button = tk.Button(top_frame, text = "Szukaj", command = self.search_images, font = ("Arial", 14), bg = 'black', fg = 'lime', activebackground = 'black', activeforeground = 'lime', borderwidth= 2)
         search_button.grid(row = 0, column = 2)
 
         top_frame.grid_columnconfigure(1, weight = 1) # pole tekstowe, rozciąga się
@@ -73,7 +74,7 @@ class FetchNasaImagesApp:
     def log(self, message):
         timestamp = datetime.now().strftime("%d-%m-%Y %H:%M:%S") # Generuje znacznik czasu
         self.log_text.configure(state = 'normal') # Wyłącza edytowanie pola tekstowego logów
-        self.log_text.insert(tk.END,f"[{timestamp}] {message}\n") # dzięki temu wiadomości pokazują się z dokładną datą i czasem
+        self.log_text.insert(tk.END,f"[{timestamp}] {message}\n") # pokazanie wiadomości z dokładną datą i czasem
         self.log_text.configure(state = 'disabled') # wyłącza edytowanie aby użtkownik nie mógł zmnieniać logów
         self.log_text.see(tk.END) # Przewija panel logów do najnowszej wiadomości, aby była zawsze widoczna
 
@@ -93,7 +94,7 @@ class FetchNasaImagesApp:
         try:
             params = {'q': query, 'media_type': 'image'} # tworzy parametry żądania (q - zapytanie, a "media_type: image" - wynik w postaci obrazów)
             response = requests.get(self.base_url, params = params) # wysyła żądanie "get" do API NASA
-            response.raise_for_status() # sprawdza czy odpowiedź HTTp jest poprawna
+            response.raise_for_status() # sprawdza czy odpowiedź HTTP jest poprawna
 
             # Przetwarzanie odpowiedzi
             data = response.json() # parsuje odpowiedź json
@@ -120,7 +121,7 @@ class FetchNasaImagesApp:
         except Exception as e: # loguje niespodziewane błedy,
             self.log(f"Niespodziewany błąd: {str(e)}")
 
-    # Czyści siatkę obrazów przed nowym wyszukanie (zabija dzieci XD)
+    # Czyści siatkę obrazów przed nowym wyszukaniem (zabija dzieci XD)
     def clear_images(self):
         for widget in self.images_frame.winfo_children(): # pobiera wszystkie widżety (ramki z obrazkami i tytułami) w "images_frame"
             widget.destroy() # usuwa każdy widżet z interfejsu
@@ -129,7 +130,7 @@ class FetchNasaImagesApp:
     # Wyświetla do 9 obrazków w siatce 3x3, jeden po drugin, z etykietą "Ładowanie..." na pierwszym planie
     def display_images(self, items):
         col_count = 3 # skala siatki
-        row = 0 # zmienne śledzące pozycję w siatce i liczbę wyświetlanych obrazów
+        row = 0 # zmienne śledzące pozycję w siatce
         col = 0
         shown = 0
 
@@ -171,7 +172,7 @@ class FetchNasaImagesApp:
 
                 # Obraz z zieloną ramką
                 # przycisk z obrazem który po kliknęciu wywołuje "ope_image_window(img_url)", reszta odpowiada za zieloną ramkę wokół zdjęcia
-                img_button = tk.Button(img_container, image=photo, command=lambda url=img_url: self.open_image_window(url), bg = 'lime', activebackground= 'lime', borderwidth = 2, highlightthickness = 2, highlightbackground = 'lime', highlightcolor = 'lime')
+                img_button = tk.Button(img_container, image = photo, command = lambda url = img_url: self.open_image_window(url), bg = 'lime', activebackground = 'lime', borderwidth = 2, highlightthickness = 2, highlightbackground = 'lime', highlightcolor = 'lime')
                 img_button.pack()
 
                 # Tytuł
